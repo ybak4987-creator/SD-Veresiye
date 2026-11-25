@@ -1,0 +1,17 @@
+# Cloudflare Pages başlıkları
+# Vite bu dosyayı build sırasında dist/_headers içine kopyalar.
+# Kaynak: https://developers.cloudflare.com/pages/configuration/headers/
+#
+# NOT: Bu dosya Pages Functions yanıtlarını KAPSAMAZ.
+# /api/veresiye/* yanıtları fonksiyonun kendisinde (functions/api/veresiye/[name].js)
+# Cache-Control / nosniff başlıklarını kendisi ayarlar; CSS/JS/HTML servis eden
+# bir Function yoksa CSP'nin fonksiyonda ayrıca ayarlanması gerekmez.
+
+/*
+  Content-Security-Policy: default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src 'self' https://fonts.gstatic.com data:; img-src 'self' data: blob:; connect-src 'self'; manifest-src 'self'; worker-src 'self'; object-src 'none'; base-uri 'self'; frame-ancestors 'none'; form-action 'self'
+  X-Content-Type-Options: nosniff
+  X-Frame-Options: DENY
+  Referrer-Policy: strict-origin-when-cross-origin
+  Permissions-Policy: camera=(), microphone=(), geolocation=()
+  Strict-Transport-Security: max-age=31536000; includeSubDomains
+  X-Robots-Tag: noindex, nofollow, noarchive
