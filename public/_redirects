@@ -1,0 +1,6 @@
+# SPA yonlendirme — Cloudflare Pages
+# /admin dogrudan acildiginda 404 vermesin.
+/admin  /index.html  200
+/admin/ /index.html  200
+# Geri kalan her yol index.html (React router halleder)
+/*      /index.html  200
