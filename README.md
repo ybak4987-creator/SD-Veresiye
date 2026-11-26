@@ -26,7 +26,7 @@ Node 22.x gerekir.
 
 Taşınan tek bağımlılık: `qrcode` + `@types/qrcode` (QR modalı için).
 
-### Değişen tek satır: import yolu
+### Değişen tek satır:import yolu
 
 ```diff
 - } from '@/lib/veresiye';
