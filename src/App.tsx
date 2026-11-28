@@ -2,10 +2,6 @@ import { useEffect, useMemo, useState } from 'react';
 import type { FormEvent } from 'react';
 import {
   ArrowUpRight,
-  Bell,
-  CheckCircle2,
-  CircleAlert,
-  RefreshCw,
   CalendarDays,
   ChevronRight,
   Clock3,
@@ -26,18 +22,9 @@ import {
   type Customer,
   type Purchase,
 } from '@/services/veresiyeApi';
-import {
-  notificationPermission,
-  collectDiagnostics,
-  subscribeToPush,
-  sendTestPush,
-  unsubscribeFromPush,
-  type PushDiagnostics,
-} from '@/notifications';
 
 type View = 'customer-login' | 'customer';
 type PortalHealthState = { status: 'idle' | 'checking' | 'ok' | 'error'; message: string };
-type NotificationState = 'unsupported' | 'default' | 'granted' | 'denied';
 const CUSTOMER_SESSION_KEY = 'silopidijital-veresiye-session-v1';
 
 const formatMoney = (amount: number) => new Intl.NumberFormat('tr-TR', {
@@ -75,11 +62,6 @@ function App() {
   const [selectedCustomer, setSelectedCustomer] = useState<Customer | null>(null);
   const [customerPurchases, setCustomerPurchases] = useState<Purchase[]>([]);
   const [portalHealth, setPortalHealth] = useState<PortalHealthState>({ status: 'idle', message: '' });
-  const [notifyState, setNotifyState] = useState<NotificationState>(() => notificationPermission() as NotificationState);
-  const [pushDiagnostics, setPushDiagnostics] = useState<PushDiagnostics | null>(null);
-  const [pushMessage, setPushMessage] = useState('');
-  const [pushBusy, setPushBusy] = useState(false);
-  const [pushTestBusy, setPushTestBusy] = useState(false);
 
   useEffect(() => {
     let cancelled = false;
@@ -103,56 +85,6 @@ function App() {
 
     return () => { cancelled = true; };
   }, []);
-
-
-  useEffect(() => {
-    if (view !== 'customer') return;
-    let cancelled = false;
-    void collectDiagnostics().then((diagnostics) => {
-      if (!cancelled) setPushDiagnostics(diagnostics);
-    });
-    return () => { cancelled = true; };
-  }, [view]);
-
-  const currentSessionToken = () => {
-    try { return window.localStorage.getItem(CUSTOMER_SESSION_KEY) || ''; } catch { return ''; }
-  };
-
-  const refreshPushDiagnostics = async () => {
-    const diagnostics = await collectDiagnostics();
-    setPushDiagnostics(diagnostics);
-    setNotifyState(notificationPermission() as NotificationState);
-  };
-
-  const handleEnableNotifications = async () => {
-    if (pushBusy) return;
-    setPushBusy(true);
-    setPushMessage('Bu cihaz bildirimlere kaydediliyor…');
-    try {
-      const result = await subscribeToPush(currentSessionToken());
-      setPushMessage(result.message);
-      await refreshPushDiagnostics();
-    } catch (error) {
-      setPushMessage(error instanceof Error ? error.message : 'Bildirim kurulumu tamamlanamadı.');
-    } finally {
-      setPushBusy(false);
-    }
-  };
-
-  const handleTestPush = async () => {
-    if (pushTestBusy) return;
-    setPushTestBusy(true);
-    setPushMessage('Sunucudan gerçek test bildirimi isteniyor…');
-    try {
-      const result = await sendTestPush(currentSessionToken());
-      setPushMessage(result.message);
-      await refreshPushDiagnostics();
-    } catch (error) {
-      setPushMessage(error instanceof Error ? error.message : 'Test bildirimi gönderilemedi.');
-    } finally {
-      setPushTestBusy(false);
-    }
-  };
 
   const handlePortalHealthCheck = async () => {
     setPortalHealth({ status: 'checking', message: 'Bağlantı kontrol ediliyor…' });
@@ -185,8 +117,7 @@ function App() {
     }
   };
 
-  const logoutCustomer = async () => {
-    await unsubscribeFromPush(currentSessionToken());
+  const logoutCustomer = () => {
     try { window.localStorage.removeItem(CUSTOMER_SESSION_KEY); } catch { /* storage may be disabled */ }
     setSelectedCustomer(null);
     setCustomerPurchases([]);
@@ -194,19 +125,7 @@ function App() {
   };
 
   if (view === 'customer' && selectedCustomer) {
-    return <CustomerDashboard
-      customer={selectedCustomer}
-      purchases={customerPurchases}
-      onLogout={logoutCustomer}
-      notifyState={notifyState}
-      onEnableNotifications={handleEnableNotifications}
-      onTestPush={handleTestPush}
-      onRefreshPushDiagnostics={refreshPushDiagnostics}
-      pushDiagnostics={pushDiagnostics}
-      pushMessage={pushMessage}
-      pushBusy={pushBusy}
-      pushTestBusy={pushTestBusy}
-    />;
+    return <CustomerDashboard customer={selectedCustomer} purchases={customerPurchases} onLogout={logoutCustomer} />;
   }
 
   return <LoginScreen mode="customer" code={code} setCode={setCode} error={loginError} onSubmit={handleCustomerLogin} loading={isLoading} onHealthCheck={handlePortalHealthCheck} healthState={portalHealth} rememberMe={rememberMe} setRememberMe={setRememberMe} />;
@@ -244,24 +163,7 @@ function LoginScreen(props: LoginScreenProps) {
   </div></div>;
 }
 
-type CustomerDashboardProps = {
-  customer: Customer;
-  purchases: Purchase[];
-  onLogout: () => void | Promise<void>;
-  notifyState: NotificationState;
-  onEnableNotifications: () => Promise<void>;
-  onTestPush: () => Promise<void>;
-  onRefreshPushDiagnostics: () => Promise<void>;
-  pushDiagnostics: PushDiagnostics | null;
-  pushMessage: string;
-  pushBusy: boolean;
-  pushTestBusy: boolean;
-};
-
-function CustomerDashboard({
-  customer, purchases, onLogout, notifyState, onEnableNotifications, onTestPush,
-  onRefreshPushDiagnostics, pushDiagnostics, pushMessage, pushBusy, pushTestBusy,
-}: CustomerDashboardProps) {
+function CustomerDashboard({ customer, purchases, onLogout }: { customer: Customer; purchases: Purchase[]; onLogout: () => void }) {
   const [expandedPurchase, setExpandedPurchase] = useState<string | null>(null);
   const [showAll, setShowAll] = useState(false);
 
@@ -308,49 +210,6 @@ function CustomerDashboard({
     <header className="customer-header"><div className="customer-brand"><BrandMark /></div><div className="store-identity"><Store size={19} /><span>Ferhat Büfe</span></div><button className="header-logout" onClick={onLogout}><LogOut size={16} /> Çıkış</button></header>
     <main className="customer-main">
       <section className="customer-profile"><div className="customer-avatar"><UserRound size={24} /></div><div><h1>{customer.name}</h1><p>Veresiye Hesabım</p></div></section>
-      <section className="push-settings" aria-label="Telefon bildirim ayarları">
-        <div className="push-settings-top">
-          <div className="push-settings-title">
-            <span className="push-settings-icon"><Bell size={19} /></span>
-            <div><h2>Telefon bildirimleri</h2><p>Yeni veresiye ve ödeme hareketlerinden haberdar olun.</p></div>
-          </div>
-          <span className={`push-status ${pushDiagnostics?.subscription ? 'push-status-on' : 'push-status-off'}`}>
-            {pushDiagnostics?.subscription ? 'Cihaz kayıtlı' : 'Kurulum gerekli'}
-          </span>
-        </div>
-        <div className="push-actions">
-          <button type="button" className="push-primary" onClick={() => void onEnableNotifications()} disabled={pushBusy}>
-            <Bell size={16} /> {pushBusy ? 'Etkinleştiriliyor…' : (notifyState === 'granted' ? 'Bu cihazı kaydet / yenile' : 'Bildirimleri etkinleştir')}
-          </button>
-          <button type="button" className="push-secondary" onClick={() => void onTestPush()} disabled={pushTestBusy || !pushDiagnostics?.subscription}>
-            {pushTestBusy ? 'Gönderiliyor…' : 'Test bildirimi gönder'}
-          </button>
-          <button type="button" className="push-refresh" aria-label="Bildirim durumunu yenile" onClick={() => void onRefreshPushDiagnostics()}>
-            <RefreshCw size={16} />
-          </button>
-        </div>
-        {pushMessage && <p className="push-message" role="status">{pushMessage}</p>}
-        {pushDiagnostics && <div className="push-checks">
-          {[
-            ['Tarayıcı Web Push desteği', pushDiagnostics.supported],
-            ['Güvenli HTTPS bağlantısı', pushDiagnostics.secureContext],
-            ['Service Worker', pushDiagnostics.swRegistered && pushDiagnostics.swActive],
-            ['Bildirim izni', pushDiagnostics.permission === 'granted'],
-            ['VAPID yapılandırması', pushDiagnostics.vapidConfigured],
-            ['Cihaz aboneliği', pushDiagnostics.subscription],
-            ['Bildirim sunucusu', pushDiagnostics.serverReachable],
-          ].map(([label, ok]) => <div className="push-check-row" key={String(label)}>
-            {ok ? <CheckCircle2 size={15} /> : <CircleAlert size={15} />}
-            <span>{label}</span><strong>{ok ? 'Hazır' : 'Eksik'}</strong>
-          </div>)}
-          {pushDiagnostics.isIOS && (!pushDiagnostics.isStandalone || !pushDiagnostics.iosVersionOk) && <p className="push-platform-note">
-            iPhone için iOS 16.4+ ve Safari Paylaş menüsünden Ana Ekrana Ekle şarttır.
-          </p>}
-          {pushDiagnostics.error && <p className="push-platform-note">{pushDiagnostics.error}</p>}
-        </div>}
-        {notifyState === 'denied' && <p className="push-platform-note">Bildirim izni tarayıcı ayarlarından kapalı. Telefon ayarlarından SD Veresiye için bildirim iznini açın.</p>}
-      </section>
-
       <section className="balance-card"><div className="balance-top"><span><WalletCards size={18} /> {customer.balance < -0.009 ? 'Mağazadaki Avansınız' : customer.balance > 0.009 ? 'Güncel Toplam Borç' : 'Güncel Bakiye'}</span><ShieldCheck size={18} /></div><strong>{formatMoney(Math.abs(customer.balance))}{customer.balance < -0.009 ? ' alacak' : ''}</strong><div className="balance-bottom"><span><Clock3 size={14} /> Son hareket: {customer.lastActivity}</span><span className="balance-status"><i /> Hesap aktif</span></div></section>
 
       <div className="section-title"><div className="section-title-label"><ShoppingBag size={22} /><div><h2>Açık Hesap</h2><p>Henüz ödemediğiniz alışverişler</p></div></div>{openPurchases.length > 0 && <span className="open-total-pill">{formatMoney(openTotal)}</span>}</div>
