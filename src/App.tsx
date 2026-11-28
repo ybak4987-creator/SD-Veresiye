@@ -8,6 +8,8 @@ import {
   AlertCircle,
   CalendarDays,
   ChevronRight,
+  ChevronDown,
+  ChevronUp,
   Clock3,
   KeyRound,
   LockKeyhole,
@@ -216,12 +218,19 @@ function CustomerDashboard({ customer, purchases, sessionToken, onLogout }: { cu
   };
 
   return <div className="customer-page">
-    <header className="customer-header"><div className="customer-brand"><BrandMark /></div><div className="store-identity"><Store size={19} /><span>Ferhat Büfe</span></div><button className="header-logout" onClick={onLogout}><LogOut size={16} /> Çıkış</button></header>
+    <header className="customer-header">
+      <div className="store-identity"><Store size={19} /><span>Ferhat Büfe</span></div>
+      <img src="/silopi-dijital-logo.png" alt="Silopi Dijital" className="header-logo" width={168} height={48} decoding="async" />
+      <button className="header-logout" onClick={onLogout}><LogOut size={16} /> Çıkış</button>
+    </header>
     <main className="customer-main">
-      <section className="customer-profile"><div className="customer-avatar"><UserRound size={24} /></div><div><h1>{customer.name}</h1><p>Veresiye Hesabım</p></div></section>
-      <section className="balance-card"><div className="balance-top"><span><WalletCards size={18} /> {customer.balance < -0.009 ? 'Mağazadaki Avansınız' : customer.balance > 0.009 ? 'Güncel Toplam Borç' : 'Güncel Bakiye'}</span><ShieldCheck size={18} /></div><strong>{formatMoney(Math.abs(customer.balance))}{customer.balance < -0.009 ? ' alacak' : ''}</strong><div className="balance-bottom"><span><Clock3 size={14} /> Son hareket: {customer.lastActivity}</span><span className="balance-status"><i /> Hesap aktif</span></div></section>
-
+      <section className="customer-profile">
+        <div className="customer-avatar"><UserRound size={24} /></div>
+        <div className="profile-text"><h1>{customer.name}</h1><p>Veresiye Hesabım</p></div>
+        <img src="/silopi-dijital-logo.png" alt="Silopi Dijital" className="profile-logo" width={140} height={40} decoding="async" />
+      </section>
       <PushNotificationPanel sessionToken={sessionToken} />
+      <section className="balance-card"><div className="balance-top"><span><WalletCards size={18} /> {customer.balance < -0.009 ? 'Mağazadaki Avansınız' : customer.balance > 0.009 ? 'Güncel Toplam Borç' : 'Güncel Bakiye'}</span><ShieldCheck size={18} /></div><strong>{formatMoney(Math.abs(customer.balance))}{customer.balance < -0.009 ? ' alacak' : ''}</strong><div className="balance-bottom"><span><Clock3 size={14} /> Son hareket: {customer.lastActivity}</span><span className="balance-status"><i /> Hesap aktif</span></div></section>
 
       <div className="section-title"><div className="section-title-label"><ShoppingBag size={22} /><div><h2>Açık Hesap</h2><p>Henüz ödemediğiniz alışverişler</p></div></div>{openPurchases.length > 0 && <span className="open-total-pill">{formatMoney(openTotal)}</span>}</div>
       <div className="purchase-list open-account-list">
@@ -248,32 +257,50 @@ function PushNotificationPanel({ sessionToken }: { sessionToken: string }) {
   const [message, setMessage] = useState('');
   const [messageType, setMessageType] = useState<'success' | 'error'>('success');
   const [diagnostics, setDiagnostics] = useState<PushDiagnostic[]>([]);
+  const [checking, setChecking] = useState(true);
+  const [enabledAfterClick, setEnabledAfterClick] = useState(false);
+  const [expanded, setExpanded] = useState(false);
 
   useEffect(() => {
     let cancelled = false;
     void collectDiagnostics(sessionToken).then((items) => {
-      if (!cancelled) setDiagnostics(items);
+      if (cancelled) return;
+      setDiagnostics(items);
+      setChecking(false);
     }).catch(() => {
-      if (!cancelled) setDiagnostics([]);
+      if (cancelled) return;
+      setDiagnostics([]);
+      setChecking(false);
     });
     return () => { cancelled = true; };
   }, [sessionToken]);
 
-  const refresh = async () => setDiagnostics(await collectDiagnostics(sessionToken));
+  const refresh = async () => {
+    const items = await collectDiagnostics(sessionToken);
+    setDiagnostics(items);
+    return items;
+  };
+
+  const subscriptionReady = enabledAfterClick
+    || diagnostics.some((item) => item.key === 'subscription' && item.status === 'ok');
 
   const handleSubscribe = async () => {
     setBusy('subscribe');
     setMessage('');
     try {
       const result = await subscribeToPush(sessionToken);
+      setEnabledAfterClick(true);
       setMessageType('success');
       setMessage(result.message);
+      setExpanded(false);
       await refresh();
     } catch (error) {
       setMessageType('error');
       setMessage(error instanceof Error ? error.message : 'Bildirim aboneliği oluşturulamadı.');
       await refresh().catch(() => undefined);
-    } finally { setBusy(null); }
+    } finally {
+      setBusy(null);
+    }
   };
 
   const handleTest = async () => {
@@ -282,49 +309,92 @@ function PushNotificationPanel({ sessionToken }: { sessionToken: string }) {
     try {
       setMessageType('success');
       setMessage(await sendTestPush(sessionToken));
+      setExpanded(true);
       await refresh();
     } catch (error) {
       setMessageType('error');
       setMessage(error instanceof Error ? error.message : 'Test bildirimi gönderilemedi.');
+      setExpanded(true);
       await refresh().catch(() => undefined);
-    } finally { setBusy(null); }
+    } finally {
+      setBusy(null);
+    }
   };
 
-  return (
-    <section className="push-panel" aria-labelledby="push-panel-title">
-      <div className="push-panel-heading">
-        <span className="push-panel-icon"><BellRing size={20} /></span>
-        <div className="push-panel-copy">
-          <strong id="push-panel-title">Telefon bildirimleri</strong>
-          <p>Yeni veresiye hareketlerini uygulama kapalıyken de öğrenin.</p>
+  if (checking) {
+    return <div className="notify-checking" role="status">Bildirim durumu kontrol ediliyor…</div>;
+  }
+
+  if (subscriptionReady) {
+    return (
+      <section className="notify-enabled" aria-label="Bildirim durumu">
+        <div className="notify-enabled-summary">
+          <span className="notify-enabled-icon"><CheckCircle2 size={17} /></span>
+          <span className="notify-enabled-copy">
+            <strong>Bildirimler açık</strong>
+            <small>Bu cihaz yeni alışveriş ve ödeme hareketlerini alacak.</small>
+          </span>
+          <button
+            type="button"
+            className="notify-enabled-toggle"
+            onClick={() => setExpanded((value) => !value)}
+            aria-expanded={expanded}
+            aria-label={expanded ? 'Bildirim seçeneklerini gizle' : 'Bildirim seçeneklerini göster'}
+          >
+            {expanded ? <ChevronUp size={18} /> : <ChevronDown size={18} />}
+          </button>
         </div>
-      </div>
-      <div className="push-panel-actions">
-        <button type="button" className="button button-primary" onClick={() => void handleSubscribe()} disabled={busy !== null || !sessionToken}>
-          <Bell size={16} /> {busy === 'subscribe' ? 'Etkinleştiriliyor…' : 'Bildirimleri etkinleştir'}
-        </button>
-        <button type="button" className="button button-secondary" onClick={() => void handleTest()} disabled={busy !== null || !sessionToken}>
-          {busy === 'test' ? 'Gönderiliyor…' : 'Test bildirimi gönder'}
-        </button>
-      </div>
-      {message && <p className={`push-panel-message push-panel-message-${messageType}`} role="status">{message}</p>}
-      <details className="push-diagnostics">
-        <summary>Bildirim bağlantı durumunu göster</summary>
-        <div className="push-diagnostics-list">
-          {diagnostics.map((item) => (
-            <div className="push-diagnostic-row" key={item.key}>
-              <span className={`push-diagnostic-indicator push-diagnostic-${item.status}`} aria-hidden="true">
-                {item.status === 'ok' ? <CheckCircle2 size={15} /> : <AlertCircle size={15} />}
-              </span>
-              <span className="push-diagnostic-label">{item.label}</span>
-              <small>{item.detail}</small>
+        {expanded && (
+          <div className="notify-enabled-details">
+            <div className="notify-test-row">
+              <span>Bildirim bağlantısını kontrol etmek için test gönderin.</span>
+              <button type="button" className="notify-test-button" onClick={() => void handleTest()} disabled={busy !== null}>
+                <Bell size={15} /> {busy === 'test' ? 'Gönderiliyor…' : 'Test et'}
+              </button>
             </div>
-          ))}
-        </div>
-      </details>
-      <p className="push-panel-footnote">iPhone’da bildirimler için SD Veresiye’yi Safari üzerinden Ana Ekrana ekleyin.</p>
-    </section>
+            {message && <p className={`notify-message notify-message-${messageType}`} role="status">{message}</p>}
+            <details className="push-diagnostics">
+              <summary>Bağlantı ayrıntıları</summary>
+              <div className="push-diagnostics-list">
+                {diagnostics.map((item) => (
+                  <div className="push-diagnostic-row" key={item.key}>
+                    <span className={`push-diagnostic-indicator push-diagnostic-${item.status}`} aria-hidden="true">
+                      {item.status === 'ok' ? <CheckCircle2 size={15} /> : <AlertCircle size={15} />}
+                    </span>
+                    <span className="push-diagnostic-label">{item.label}</span>
+                    <small>{item.detail}</small>
+                  </div>
+                ))}
+              </div>
+            </details>
+          </div>
+        )}
+      </section>
+    );
+  }
+
+  const denied = diagnostics.some((item) => item.key === 'permission' && item.status === 'error');
+  if (denied) {
+    return (
+      <div className="notify-note" role="status">
+        <Bell size={15} />
+        <span>Bildirim izni tarayıcı ayarlarında kapalı. İzinleri açtıktan sonra bu ekrandan tekrar deneyebilirsiniz.</span>
+      </div>
+    );
+  }
+
+  return (
+    <div className="notify-prompt-wrap">
+      <button type="button" className="notify-prompt" onClick={() => void handleSubscribe()} disabled={busy !== null || !sessionToken}>
+        <Bell size={18} />
+        <span>
+          <strong>{busy === 'subscribe' ? 'Bildirimler açılıyor…' : 'Bildirimleri aç'}</strong>
+          Yeni alışveriş ve ödeme olduğunda haber verelim.
+        </span>
+        <ChevronRight size={18} />
+      </button>
+      {message && <p className={`notify-message notify-message-${messageType}`} role="alert">{message}</p>}
+    </div>
   );
 }
-
 export default App;

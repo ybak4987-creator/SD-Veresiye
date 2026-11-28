@@ -112,6 +112,25 @@ async function removeExpiredByWebhook(secret: string, customerId: string, busine
   await edgeCall(EDGE_LIST, { action: 'remove', webhook_secret: secret, customer_id: customerId, business_id: businessId, endpoint });
 }
 
+
+async function handleStatus(sessionToken: string, endpoint: string, res: Response): Promise<void> {
+  if (!sessionToken || sessionToken.length > 4096) {
+    sendJson(res, 401, { success: false, message: 'Müşteri oturumu geçersiz.' });
+    return;
+  }
+  const result = await edgeCall(EDGE_LIST, { action: 'test', session_token: sessionToken });
+  if (!result.ok || result.data.success !== true) {
+    sendJson(res, result.status || 502, {
+      success: false,
+      message: result.data.message || 'Bildirim cihazı doğrulanamadı.',
+    });
+    return;
+  }
+  const subscriptions = normalizeSubscriptions(result.data.subscriptions);
+  const subscribed = Boolean(endpoint) && subscriptions.some((item) => item.endpoint === endpoint);
+  sendJson(res, 200, { success: true, subscribed, device_count: subscriptions.length });
+}
+
 async function handleTest(sessionToken: string, res: Response): Promise<void> {
   if (!sessionToken || sessionToken.length > 4096) {
     sendJson(res, 401, { success: false, message: 'Müşteri oturumu geçersiz.' }); return;
@@ -229,7 +248,7 @@ export default async function handler(req: Request, res: Response): Promise<void
     return;
   }
 
-  if (!['subscribe', 'test', 'webhook'].includes(fn)) { sendJson(res, 404, { success: false, message: 'Bilinmeyen Push API adresi.' }); return; }
+  if (!['subscribe', 'status', 'test', 'webhook'].includes(fn)) { sendJson(res, 404, { success: false, message: 'Bilinmeyen Push API adresi.' }); return; }
   if (method !== 'POST') { res.setHeader('Allow', 'POST, OPTIONS'); sendJson(res, 405, { success: false, message: 'Method not allowed.' }); return; }
 
   const body = parseBody(req.body);
@@ -244,6 +263,10 @@ export default async function handler(req: Request, res: Response): Promise<void
       }
       const result = await edgeCall(EDGE_SUBSCRIBE, { session_token: token, subscription });
       sendJson(res, result.status, result.data); return;
+    }
+    if (fn === 'status') {
+      await handleStatus(String(body.session_token || ''), String(body.endpoint || ''), res);
+      return;
     }
     if (fn === 'test') { await handleTest(String(body.session_token || ''), res); return; }
     await handleWebhook(req, res, body);
