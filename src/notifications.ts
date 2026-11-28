@@ -37,6 +37,16 @@ async function apiRequest<T extends ApiResult>(path: string, body?: Record<strin
   return data;
 }
 
+
+async function checkServerSubscription(sessionToken: string, endpoint: string): Promise<boolean> {
+  if (!sessionToken || !endpoint) return false;
+  const result = await apiRequest<ApiResult & { subscribed?: boolean }>(
+    '/api/veresiye/push-status',
+    { session_token: sessionToken, endpoint },
+  );
+  return result.subscribed === true;
+}
+
 async function getPushConfig(): Promise<PushConfig> {
   return apiRequest<PushConfig & ApiResult>('/api/veresiye/push-config');
 }
@@ -114,6 +124,8 @@ export async function collectDiagnostics(sessionToken: string): Promise<PushDiag
   const supported = 'serviceWorker' in navigator && 'PushManager' in window && 'Notification' in window;
   let registration: ServiceWorkerRegistration | undefined;
   let hasSubscription = false;
+  let serverHasSubscription = false;
+  let currentEndpoint = '';
   let config: PushConfig | null = null;
   let diagnosticsError = '';
 
@@ -122,7 +134,12 @@ export async function collectDiagnostics(sessionToken: string): Promise<PushDiag
       registration = await navigator.serviceWorker.getRegistration('/sw.js');
       if (!registration) registration = await navigator.serviceWorker.register('/sw.js');
       await navigator.serviceWorker.ready;
-      hasSubscription = Boolean(await registration.pushManager.getSubscription());
+      const browserSubscription = await registration.pushManager.getSubscription();
+      hasSubscription = Boolean(browserSubscription);
+      currentEndpoint = browserSubscription?.endpoint || '';
+      if (hasSubscription && currentEndpoint && sessionToken) {
+        serverHasSubscription = await checkServerSubscription(sessionToken, currentEndpoint);
+      }
     } catch (error) {
       diagnosticsError = error instanceof Error ? error.message : 'Service Worker kaydı başarısız.';
     }
@@ -143,6 +160,19 @@ export async function collectDiagnostics(sessionToken: string): Promise<PushDiag
     { key: 'permission', label: 'Bildirim izni', status: permission === 'granted' ? 'ok' : permission === 'denied' ? 'error' : 'warning', detail: permission === 'granted' ? 'İzin verildi' : permission === 'denied' ? 'Tarayıcı ayarlarından engellenmiş' : 'Henüz izin verilmedi' },
     { key: 'vapid', label: 'VAPID sunucu anahtarları', status: config?.vapidReady && Boolean(config.publicKey) ? 'ok' : 'error', detail: config?.vapidReady ? 'Sunucuda yapılandırılmış' : diagnosticsError || 'Sunucu anahtarları eksik' },
     { key: 'webhook', label: 'Supabase webhook bağlantısı', status: config?.webhookReady ? 'ok' : 'error', detail: config?.webhookReady ? 'Gizli anahtar eşleşiyor' : 'Webhook gizli anahtarı doğrulanamadı' },
-    { key: 'subscription', label: 'Müşteri ve cihaz aboneliği', status: !sessionToken ? 'error' : hasSubscription ? 'ok' : 'warning', detail: !sessionToken ? 'Müşteri oturumu yok' : hasSubscription ? 'Bu cihazda abonelik var' : iosInstallRequired ? 'iPhone’da önce Ana Ekrana ekleyin' : 'Bildirimleri açmanız bekleniyor' },
+    {
+      key: 'subscription',
+      label: 'Müşteri ve cihaz aboneliği',
+      status: !sessionToken ? 'error' : hasSubscription && serverHasSubscription && permission === 'granted' ? 'ok' : 'warning',
+      detail: !sessionToken
+        ? 'Müşteri oturumu yok'
+        : hasSubscription && serverHasSubscription && permission === 'granted'
+          ? 'Bu cihaz sunucuya kayıtlı'
+          : hasSubscription && !serverHasSubscription
+            ? 'Cihaz kaydı sunucuda doğrulanamadı'
+            : iosInstallRequired
+              ? 'iPhone’da önce Ana Ekrana ekleyin'
+              : 'Bildirimleri etkinleştirmeniz bekleniyor',
+    },
   ];
 }
