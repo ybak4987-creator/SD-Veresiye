@@ -431,3 +431,34 @@ button:focus-visible, input:focus-visible { outline: 2px solid #33a5ff; outline-
 }
 
 .section-title + .purchase-list { margin-bottom: 4px; }
+
+
+/* SD Veresiye Web Push settings */
+.push-panel { display:grid; gap:13px; margin:18px 0 28px; padding:18px 20px; border:1px solid #dce8f2; border-radius:13px; background:#fff; box-shadow:0 5px 18px rgba(21,53,82,.035); }
+.push-panel-heading { display:flex; align-items:center; gap:12px; }
+.push-panel-icon { display:grid; place-items:center; width:40px; height:40px; flex:0 0 40px; border-radius:12px; color:#087dcb; background:#e8f5ff; }
+.push-panel-copy strong { display:block; color:#1a304b; font-size:13px; }
+.push-panel-copy p { margin:4px 0 0; color:#7890a7; font-size:10px; line-height:1.5; }
+.push-panel-actions { display:flex; flex-wrap:wrap; gap:9px; }
+.push-panel-actions .button { min-height:38px; }
+.push-panel-message { margin:0; padding:9px 11px; border-radius:8px; font-size:10px; line-height:1.5; }
+.push-panel-message-success { color:#23764d; background:#effaf4; }
+.push-panel-message-error { color:#a34e48; background:#fff3f1; }
+.push-diagnostics { border-top:1px solid #edf2f6; padding-top:10px; }
+.push-diagnostics summary { color:#57718a; font-size:10px; font-weight:700; cursor:pointer; }
+.push-diagnostics-list { display:grid; gap:8px; margin-top:12px; }
+.push-diagnostic-row { display:grid; grid-template-columns:18px minmax(0,1fr) minmax(120px,auto); align-items:center; gap:8px; }
+.push-diagnostic-indicator { display:inline-flex; align-items:center; }
+.push-diagnostic-ok { color:#299565; }
+.push-diagnostic-warning { color:#c28a2c; }
+.push-diagnostic-error { color:#c65d57; }
+.push-diagnostic-label { color:#415a72; font-size:10px; font-weight:600; }
+.push-diagnostic-row small { color:#899caf; font-size:9px; text-align:right; }
+.push-panel-footnote { margin:0; color:#8a9caf; font-size:9px; line-height:1.5; }
+@media (max-width:560px) {
+  .push-panel { padding:15px; }
+  .push-panel-actions { display:grid; grid-template-columns:1fr; }
+  .push-panel-actions .button { width:100%; }
+  .push-diagnostic-row { grid-template-columns:18px minmax(0,1fr); }
+  .push-diagnostic-row small { grid-column:2; text-align:left; }
+}
