@@ -39,11 +39,6 @@ function constantTimeEqual(a: string, b: string): boolean {
   return difference === 0;
 }
 
-function readFunctionName(query: Request['query']): string {
-  const raw = query?.fn;
-  return Array.isArray(raw) ? (raw.length === 1 ? raw[0] : '') : raw || '';
-}
-
 function vapidConfig() {
   const publicKey = String(process.env.VAPID_PUBLIC_KEY || '').trim();
   const privateKey = String(process.env.VAPID_PRIVATE_KEY || '').trim();
