@@ -1,7 +1,7 @@
 // SD Veresiye — service worker
 // Amaç: uygulama kabuğunu önbelleğe alıp açılışı hızlandırmak.
 // Kural: API yanıtları ASLA önbelleğe alınmaz.
-const CACHE_NAME = 'sd-veresiye-v9';
+const CACHE_NAME = 'sd-veresiye-v10';
 const APP_SHELL = [
   '/',
   '/manifest.webmanifest',
@@ -70,4 +70,39 @@ self.addEventListener('fetch', (event) => {
       return response;
     })());
   }
+});
+
+
+self.addEventListener('push', (event) => {
+  let payload = {};
+  try { payload = event.data ? event.data.json() : {}; }
+  catch { payload = { body: event.data ? event.data.text() : '' }; }
+
+  const title = typeof payload.title === 'string' ? payload.title : 'SD Veresiye';
+  const body = typeof payload.body === 'string' ? payload.body : 'Hesabınızda yeni bir hareket var.';
+  const tag = typeof payload.tag === 'string' ? payload.tag : 'sd-veresiye-update';
+  const target = typeof payload.url === 'string' ? payload.url : '/';
+
+  event.waitUntil(self.registration.showNotification(title, {
+    body, tag, icon: '/icon-192.png', badge: '/icon-192.png',
+    renotify: false, data: { url: target },
+  }));
+});
+
+self.addEventListener('notificationclick', (event) => {
+  event.notification.close();
+  const requested = event.notification && event.notification.data && event.notification.data.url;
+  let target = self.location.origin + '/';
+  try {
+    const parsed = new URL(typeof requested === 'string' ? requested : '/', self.location.origin);
+    target = parsed.origin === self.location.origin ? parsed.href : self.location.origin + '/';
+  } catch { target = self.location.origin + '/'; }
+
+  event.waitUntil((async () => {
+    const windows = await self.clients.matchAll({ type: 'window', includeUncontrolled: true });
+    for (const client of windows) {
+      if ('focus' in client && client.url.startsWith(self.location.origin)) { await client.focus(); return; }
+    }
+    if (self.clients.openWindow) await self.clients.openWindow(target);
+  })());
 });

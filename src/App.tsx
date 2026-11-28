@@ -2,6 +2,10 @@ import { useEffect, useMemo, useState } from 'react';
 import type { FormEvent } from 'react';
 import {
   ArrowUpRight,
+  Bell,
+  BellRing,
+  CheckCircle2,
+  AlertCircle,
   CalendarDays,
   ChevronRight,
   Clock3,
@@ -22,6 +26,7 @@ import {
   type Customer,
   type Purchase,
 } from '@/services/veresiyeApi';
+import { collectDiagnostics, sendTestPush, subscribeToPush, type PushDiagnostic } from '@/notifications';
 
 type View = 'customer-login' | 'customer';
 type PortalHealthState = { status: 'idle' | 'checking' | 'ok' | 'error'; message: string };
@@ -60,6 +65,7 @@ function App() {
   const [loginError, setLoginError] = useState('');
   const [isLoading, setIsLoading] = useState(false);
   const [selectedCustomer, setSelectedCustomer] = useState<Customer | null>(null);
+  const [sessionToken, setSessionToken] = useState('');
   const [customerPurchases, setCustomerPurchases] = useState<Purchase[]>([]);
   const [portalHealth, setPortalHealth] = useState<PortalHealthState>({ status: 'idle', message: '' });
 
@@ -73,6 +79,7 @@ function App() {
     void resumeCustomerSession(savedToken).then((result) => {
       if (cancelled) return;
       setSelectedCustomer(result.customer);
+      setSessionToken(result.sessionToken);
       setCustomerPurchases(result.purchases);
       // Rotate the signed 30-day token after every successful restore.
       try { window.localStorage.setItem(CUSTOMER_SESSION_KEY, result.sessionToken); } catch { /* Login remains valid for this visit if storage is disabled. */ }
@@ -107,6 +114,7 @@ function App() {
         else window.localStorage.removeItem(CUSTOMER_SESSION_KEY);
       } catch { /* Browser storage may be disabled; login still works for this visit. */ }
       setSelectedCustomer(result.customer);
+      setSessionToken(result.sessionToken);
       setCustomerPurchases(result.purchases);
       setCode('');
       setView('customer');
@@ -120,12 +128,13 @@ function App() {
   const logoutCustomer = () => {
     try { window.localStorage.removeItem(CUSTOMER_SESSION_KEY); } catch { /* storage may be disabled */ }
     setSelectedCustomer(null);
+    setSessionToken('');
     setCustomerPurchases([]);
     setView('customer-login');
   };
 
   if (view === 'customer' && selectedCustomer) {
-    return <CustomerDashboard customer={selectedCustomer} purchases={customerPurchases} onLogout={logoutCustomer} />;
+    return <CustomerDashboard customer={selectedCustomer} purchases={customerPurchases} sessionToken={sessionToken} onLogout={logoutCustomer} />;
   }
 
   return <LoginScreen mode="customer" code={code} setCode={setCode} error={loginError} onSubmit={handleCustomerLogin} loading={isLoading} onHealthCheck={handlePortalHealthCheck} healthState={portalHealth} rememberMe={rememberMe} setRememberMe={setRememberMe} />;
@@ -163,7 +172,7 @@ function LoginScreen(props: LoginScreenProps) {
   </div></div>;
 }
 
-function CustomerDashboard({ customer, purchases, onLogout }: { customer: Customer; purchases: Purchase[]; onLogout: () => void }) {
+function CustomerDashboard({ customer, purchases, sessionToken, onLogout }: { customer: Customer; purchases: Purchase[]; sessionToken: string; onLogout: () => void }) {
   const [expandedPurchase, setExpandedPurchase] = useState<string | null>(null);
   const [showAll, setShowAll] = useState(false);
 
@@ -212,6 +221,8 @@ function CustomerDashboard({ customer, purchases, onLogout }: { customer: Custom
       <section className="customer-profile"><div className="customer-avatar"><UserRound size={24} /></div><div><h1>{customer.name}</h1><p>Veresiye Hesabım</p></div></section>
       <section className="balance-card"><div className="balance-top"><span><WalletCards size={18} /> {customer.balance < -0.009 ? 'Mağazadaki Avansınız' : customer.balance > 0.009 ? 'Güncel Toplam Borç' : 'Güncel Bakiye'}</span><ShieldCheck size={18} /></div><strong>{formatMoney(Math.abs(customer.balance))}{customer.balance < -0.009 ? ' alacak' : ''}</strong><div className="balance-bottom"><span><Clock3 size={14} /> Son hareket: {customer.lastActivity}</span><span className="balance-status"><i /> Hesap aktif</span></div></section>
 
+      <PushNotificationPanel sessionToken={sessionToken} />
+
       <div className="section-title"><div className="section-title-label"><ShoppingBag size={22} /><div><h2>Açık Hesap</h2><p>Henüz ödemediğiniz alışverişler</p></div></div>{openPurchases.length > 0 && <span className="open-total-pill">{formatMoney(openTotal)}</span>}</div>
       <div className="purchase-list open-account-list">
         {openPurchases.length > 0
@@ -229,6 +240,91 @@ function CustomerDashboard({ customer, purchases, onLogout }: { customer: Custom
     </main>
     <footer className="customer-footer"><span>SD Veresiye · Ferhat Büfe</span><span><LockKeyhole size={13} /> Güvenli bağlantı</span></footer>
   </div>;
+}
+
+
+function PushNotificationPanel({ sessionToken }: { sessionToken: string }) {
+  const [busy, setBusy] = useState<'subscribe' | 'test' | null>(null);
+  const [message, setMessage] = useState('');
+  const [messageType, setMessageType] = useState<'success' | 'error'>('success');
+  const [diagnostics, setDiagnostics] = useState<PushDiagnostic[]>([]);
+
+  useEffect(() => {
+    let cancelled = false;
+    void collectDiagnostics(sessionToken).then((items) => {
+      if (!cancelled) setDiagnostics(items);
+    }).catch(() => {
+      if (!cancelled) setDiagnostics([]);
+    });
+    return () => { cancelled = true; };
+  }, [sessionToken]);
+
+  const refresh = async () => setDiagnostics(await collectDiagnostics(sessionToken));
+
+  const handleSubscribe = async () => {
+    setBusy('subscribe');
+    setMessage('');
+    try {
+      const result = await subscribeToPush(sessionToken);
+      setMessageType('success');
+      setMessage(result.message);
+      await refresh();
+    } catch (error) {
+      setMessageType('error');
+      setMessage(error instanceof Error ? error.message : 'Bildirim aboneliği oluşturulamadı.');
+      await refresh().catch(() => undefined);
+    } finally { setBusy(null); }
+  };
+
+  const handleTest = async () => {
+    setBusy('test');
+    setMessage('');
+    try {
+      setMessageType('success');
+      setMessage(await sendTestPush(sessionToken));
+      await refresh();
+    } catch (error) {
+      setMessageType('error');
+      setMessage(error instanceof Error ? error.message : 'Test bildirimi gönderilemedi.');
+      await refresh().catch(() => undefined);
+    } finally { setBusy(null); }
+  };
+
+  return (
+    <section className="push-panel" aria-labelledby="push-panel-title">
+      <div className="push-panel-heading">
+        <span className="push-panel-icon"><BellRing size={20} /></span>
+        <div className="push-panel-copy">
+          <strong id="push-panel-title">Telefon bildirimleri</strong>
+          <p>Yeni veresiye hareketlerini uygulama kapalıyken de öğrenin.</p>
+        </div>
+      </div>
+      <div className="push-panel-actions">
+        <button type="button" className="button button-primary" onClick={() => void handleSubscribe()} disabled={busy !== null || !sessionToken}>
+          <Bell size={16} /> {busy === 'subscribe' ? 'Etkinleştiriliyor…' : 'Bildirimleri etkinleştir'}
+        </button>
+        <button type="button" className="button button-secondary" onClick={() => void handleTest()} disabled={busy !== null || !sessionToken}>
+          {busy === 'test' ? 'Gönderiliyor…' : 'Test bildirimi gönder'}
+        </button>
+      </div>
+      {message && <p className={`push-panel-message push-panel-message-${messageType}`} role="status">{message}</p>}
+      <details className="push-diagnostics">
+        <summary>Bildirim bağlantı durumunu göster</summary>
+        <div className="push-diagnostics-list">
+          {diagnostics.map((item) => (
+            <div className="push-diagnostic-row" key={item.key}>
+              <span className={`push-diagnostic-indicator push-diagnostic-${item.status}`} aria-hidden="true">
+                {item.status === 'ok' ? <CheckCircle2 size={15} /> : <AlertCircle size={15} />}
+              </span>
+              <span className="push-diagnostic-label">{item.label}</span>
+              <small>{item.detail}</small>
+            </div>
+          ))}
+        </div>
+      </details>
+      <p className="push-panel-footnote">iPhone’da bildirimler için SD Veresiye’yi Safari üzerinden Ana Ekrana ekleyin.</p>
+    </section>
+  );
 }
 
 export default App;
