@@ -41,12 +41,12 @@ async function getPushConfig(): Promise<PushConfig> {
   return apiRequest<PushConfig & ApiResult>('/api/veresiye/push-config');
 }
 
-function decodeApplicationServerKey(value: string): Uint8Array {
+function decodeApplicationServerKey(value: string): ArrayBuffer {
   const normalized = value.replace(/-/g, '+').replace(/_/g, '/');
   const binary = atob(normalized + '='.repeat((4 - normalized.length % 4) % 4));
   const bytes = new Uint8Array(binary.length);
   for (let i = 0; i < binary.length; i += 1) bytes[i] = binary.charCodeAt(i);
-  return bytes;
+  return bytes.buffer as ArrayBuffer;
 }
 
 function isIosDevice(): boolean {
