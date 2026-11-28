@@ -86,6 +86,20 @@ function configureVapid(): boolean {
   catch { return false; }
 }
 
+function normalizeSubscriptions(value: unknown): Subscription[] {
+  if (!Array.isArray(value)) return [];
+  return value.flatMap((item): Subscription[] => {
+    if (!item || typeof item !== 'object') return [];
+    const row = item as Record<string, unknown>;
+    const nestedKeys = row.keys && typeof row.keys === 'object' ? row.keys as Record<string, unknown> : {};
+    const endpoint = String(row.endpoint || '');
+    const p256dh = String(nestedKeys.p256dh || row.p256dh || '');
+    const auth = String(nestedKeys.auth || row.auth || '');
+    if (!endpoint.startsWith('https://') || !p256dh || !auth) return [];
+    return [{ endpoint, keys: { p256dh, auth } }];
+  });
+}
+
 function notificationPayload(title: string, body: string, tag: string): string {
   return JSON.stringify({ title, body, tag, url: '/' });
 }
@@ -109,7 +123,7 @@ async function handleTest(sessionToken: string, res: Response): Promise<void> {
   if (!result.ok || result.data.success !== true) {
     sendJson(res, result.status || 502, { success: false, message: result.data.message || 'Müşteri cihazları doğrulanamadı.' }); return;
   }
-  const subscriptions = Array.isArray(result.data.subscriptions) ? result.data.subscriptions as Subscription[] : [];
+  const subscriptions = normalizeSubscriptions(result.data.subscriptions);
   if (!subscriptions.length) {
     sendJson(res, 409, { success: false, message: 'Bu hesap için kayıtlı bildirim cihazı bulunamadı.' }); return;
   }
@@ -165,7 +179,7 @@ async function handleWebhook(req: Request, res: Response, body: JsonRecord): Pro
     }); return;
   }
 
-  const subscriptions = Array.isArray(prepared.data.subscriptions) ? prepared.data.subscriptions as Subscription[] : [];
+  const subscriptions = normalizeSubscriptions(prepared.data.subscriptions);
   const customerId = String(prepared.data.customer_id || '');
   const businessId = String(prepared.data.business_id || '');
   const eventKey = String(prepared.data.event_key || `${eventType}:${eventId}`);
