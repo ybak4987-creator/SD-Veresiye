@@ -433,32 +433,72 @@ button:focus-visible, input:focus-visible { outline: 2px solid #33a5ff; outline-
 .section-title + .purchase-list { margin-bottom: 4px; }
 
 
-/* SD Veresiye Web Push settings */
-.push-panel { display:grid; gap:13px; margin:18px 0 28px; padding:18px 20px; border:1px solid #dce8f2; border-radius:13px; background:#fff; box-shadow:0 5px 18px rgba(21,53,82,.035); }
-.push-panel-heading { display:flex; align-items:center; gap:12px; }
-.push-panel-icon { display:grid; place-items:center; width:40px; height:40px; flex:0 0 40px; border-radius:12px; color:#087dcb; background:#e8f5ff; }
-.push-panel-copy strong { display:block; color:#1a304b; font-size:13px; }
-.push-panel-copy p { margin:4px 0 0; color:#7890a7; font-size:10px; line-height:1.5; }
-.push-panel-actions { display:flex; flex-wrap:wrap; gap:9px; }
-.push-panel-actions .button { min-height:38px; }
-.push-panel-message { margin:0; padding:9px 11px; border-radius:8px; font-size:10px; line-height:1.5; }
-.push-panel-message-success { color:#23764d; background:#effaf4; }
-.push-panel-message-error { color:#a34e48; background:#fff3f1; }
-.push-diagnostics { border-top:1px solid #edf2f6; padding-top:10px; }
-.push-diagnostics summary { color:#57718a; font-size:10px; font-weight:700; cursor:pointer; }
-.push-diagnostics-list { display:grid; gap:8px; margin-top:12px; }
-.push-diagnostic-row { display:grid; grid-template-columns:18px minmax(0,1fr) minmax(120px,auto); align-items:center; gap:8px; }
-.push-diagnostic-indicator { display:inline-flex; align-items:center; }
-.push-diagnostic-ok { color:#299565; }
-.push-diagnostic-warning { color:#c28a2c; }
-.push-diagnostic-error { color:#c65d57; }
-.push-diagnostic-label { color:#415a72; font-size:10px; font-weight:600; }
-.push-diagnostic-row small { color:#899caf; font-size:9px; text-align:right; }
-.push-panel-footnote { margin:0; color:#8a9caf; font-size:9px; line-height:1.5; }
-@media (max-width:560px) {
-  .push-panel { padding:15px; }
-  .push-panel-actions { display:grid; grid-template-columns:1fr; }
-  .push-panel-actions .button { width:100%; }
-  .push-diagnostic-row { grid-template-columns:18px minmax(0,1fr); }
-  .push-diagnostic-row small { grid-column:2; text-align:left; }
+
+/* SD Veresiye · V5 compact push permission and status */
+.notify-prompt-wrap { max-width:720px; margin:0 auto 14px; }
+.notify-prompt {
+  display:flex; align-items:center; gap:13px; width:100%; max-width:720px;
+  margin:0 auto; padding:14px 16px;
+  border:1px dashed #1f5fae; border-radius:18px;
+  color:#a9c7e8; background:rgba(6,26,58,.7); text-align:left;
+  transition:border-color .18s ease, background .18s ease, transform .18s ease;
+}
+.notify-prompt:hover { border-color:#2f8ff0; background:rgba(8,38,82,.85); transform:translateY(-1px); }
+.notify-prompt:disabled { cursor:wait; opacity:.72; transform:none; }
+.notify-prompt > svg:first-child { flex:0 0 auto; color:#37b0f5; }
+.notify-prompt > svg:last-child { flex:0 0 auto; color:#7ea3c9; margin-left:auto; }
+.notify-prompt span { display:block; font-size:12px; line-height:1.5; }
+.notify-prompt strong { display:block; margin-bottom:2px; color:#eaf4ff; font-size:14px; }
+.notify-enabled {
+  max-width:720px; margin:0 auto 14px; padding:11px 14px;
+  border:1px solid rgba(48,169,128,.35); border-radius:15px;
+  color:#b8d8cd; background:linear-gradient(110deg,rgba(5,42,36,.94),rgba(4,24,28,.96));
+  box-shadow:0 8px 20px rgba(0,0,0,.12);
+}
+.notify-enabled-summary { display:flex; align-items:center; gap:11px; min-width:0; }
+.notify-enabled-icon {
+  display:grid; place-items:center; width:31px; height:31px; flex:0 0 31px;
+  border:1px solid #1a7a5c; border-radius:10px; color:#4ee0a8; background:#04241c;
+}
+.notify-enabled-copy { flex:1; min-width:0; }
+.notify-enabled-copy strong { display:block; color:#e7fff5; font-size:12px; font-weight:700; }
+.notify-enabled-copy small { display:block; margin-top:3px; color:#8db9a8; font-size:10px; line-height:1.4; }
+.notify-enabled-toggle {
+  display:grid; place-items:center; width:31px; height:31px; flex:0 0 31px;
+  border:1px solid rgba(114,176,152,.18); border-radius:9px; color:#9fc9b8; background:rgba(255,255,255,.035);
+}
+.notify-enabled-toggle:hover { color:#fff; background:rgba(255,255,255,.08); }
+.notify-enabled-details { margin-top:11px; padding-top:11px; border-top:1px solid rgba(114,176,152,.18); }
+.notify-test-row { display:flex; align-items:center; justify-content:space-between; gap:12px; color:#a5c9bb; font-size:10px; line-height:1.5; }
+.notify-test-button {
+  display:inline-flex; align-items:center; justify-content:center; gap:7px; min-height:34px;
+  padding:0 12px; border:1px solid #1f7d60; border-radius:9px;
+  color:#caffea; background:#073c2e; font-size:10px; font-weight:700; white-space:nowrap;
+}
+.notify-test-button:hover { border-color:#39b88d; background:#09513e; }
+.notify-test-button:disabled { cursor:wait; opacity:.65; }
+.notify-message { margin:9px 0 0; padding:8px 10px; border-radius:8px; font-size:10px; line-height:1.5; }
+.notify-message-success { color:#b9f4d8; background:rgba(13,95,65,.32); }
+.notify-message-error { color:#ffc8c3; background:rgba(125,37,43,.3); }
+.notify-enabled .push-diagnostics { margin-top:10px; padding-top:8px; border-top:1px solid rgba(114,176,152,.14); }
+.notify-enabled .push-diagnostics summary { color:#9fc9b8; font-size:10px; font-weight:700; cursor:pointer; }
+.notify-enabled .push-diagnostic-label { color:#c1dfd3; }
+.notify-enabled .push-diagnostic-row small { color:#8eb2a3; }
+.notify-checking { max-width:720px; margin:0 auto 12px; padding:7px 2px; color:#7997b8; font-size:10px; }
+.notify-note {
+  display:flex; align-items:flex-start; gap:9px; max-width:720px;
+  margin:0 auto 14px; padding:11px 14px;
+  border:1px solid #2a4a6e; border-radius:14px;
+  color:#93b0ce; background:rgba(8,26,50,.6); font-size:11px; line-height:1.5;
+}
+.notify-note svg { flex:0 0 auto; color:#7fa3c6; }
+@media (max-width:760px) {
+  .notify-prompt, .notify-note { border-radius:15px; }
+  .notify-prompt { gap:10px; padding:12px 13px; }
+  .notify-prompt span { font-size:10px; }
+  .notify-prompt strong { font-size:12px; }
+  .notify-enabled { padding:10px 11px; }
+  .notify-enabled-copy small { font-size:9px; }
+  .notify-test-row { align-items:flex-start; flex-direction:column; }
+  .notify-test-button { width:100%; }
 }
