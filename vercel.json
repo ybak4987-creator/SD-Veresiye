@@ -1,18 +1,37 @@
 {
   "$schema": "https://openapi.vercel.sh/vercel.json",
   "framework": "vite",
-  "buildCommand": "npm run build",
+  "buildCommand": "npm run check",
   "outputDirectory": "dist",
-  "installCommand": "npm ci",
+  "installCommand": "npm install --no-audit --no-fund",
   "regions": [
     "fra1"
   ],
   "functions": {
     "api/veresiye.ts": {
       "maxDuration": 30
+    },
+    "api/push.ts": {
+      "maxDuration": 30
     }
   },
   "rewrites": [
+    {
+      "source": "/api/veresiye/push-config",
+      "destination": "/api/push?fn=config"
+    },
+    {
+      "source": "/api/veresiye/push-subscribe",
+      "destination": "/api/push?fn=subscribe"
+    },
+    {
+      "source": "/api/veresiye/push-test",
+      "destination": "/api/push?fn=test"
+    },
+    {
+      "source": "/api/veresiye/push-webhook",
+      "destination": "/api/push?fn=webhook"
+    },
     {
       "source": "/api/veresiye/health",
       "destination": "/api/veresiye?fn=health"
