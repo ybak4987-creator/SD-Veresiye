@@ -8,6 +8,8 @@ import {
   AlertCircle,
   CalendarDays,
   ChevronRight,
+  ChevronDown,
+  ChevronUp,
   Clock3,
   KeyRound,
   LockKeyhole,
