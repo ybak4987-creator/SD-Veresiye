@@ -1,4 +1,4 @@
-import webpush from 'web-push';
+import * as webpush from 'web-push';
 
 type HeaderValue = string | string[] | undefined;
 type Request = { method?: string; headers: Record<string, HeaderValue>; query?: Record<string, string | string[] | undefined>; body?: unknown };
