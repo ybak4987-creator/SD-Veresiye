@@ -17,6 +17,10 @@
   },
   "rewrites": [
     {
+      "source": "/api/veresiye/push-status",
+      "destination": "/api/push?fn=status"
+    },
+    {
       "source": "/api/veresiye/push-config",
       "destination": "/api/push?fn=config"
     },
